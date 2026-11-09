@@ -1,0 +1,321 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#101827">
+<link rel="manifest" href="./manifest.json">
+<title>WINGO ANALYZER PRO</title>
+
+<style>
+body {
+  margin: 0;
+  padding: 15px;
+  background: #101827;
+  color: white;
+  font-family: Arial, sans-serif;
+}
+h1 { text-align:center; color:#00e5ff; }
+.card {
+  background:#1e293b;
+  padding:15px;
+  margin:12px 0;
+  border-radius:12px;
+}
+input,button {
+  padding:12px;
+  margin:5px 0;
+  border:0;
+  border-radius:8px;
+  font-size:16px;
+}
+input { width:90%; }
+button {
+  background:#00bcd4;
+  color:#07111f;
+  font-weight:bold;
+}
+.result {
+  font-size:20px;
+  font-weight:bold;
+  margin-top:10px;
+}
+table {
+  width:100%;
+  border-collapse:collapse;
+  font-size:13px;
+}
+td,th {
+  border-bottom:1px solid #475569;
+  padding:8px 4px;
+  text-align:center;
+}
+canvas {
+  width:100%;
+  background:#0b1220;
+  border-radius:8px;
+}
+.note { color:#cbd5e1; font-size:13px; }
+</style>
+</head>
+
+<body>
+
+<h1>WINGO ANALYZER PRO</h1>
+
+<div class="card">
+<h3>Enter Result Number (0 - 9)</h3>
+<input id="numberInput" type="number" min="0" max="9"
+placeholder="Enter number">
+<br>
+<button onclick="addNumber()">ADD RESULT</button>
+<div id="result" class="result"></div>
+</div>
+
+<div class="card">
+<h3>Statistics</h3>
+<p>Total Results: <span id="total">0</span></p>
+<p>BIG: <span id="bigCount">0</span></p>
+<p>SMALL: <span id="smallCount">0</span></p>
+<p>RED: <span id="redCount">0</span></p>
+<p>GREEN: <span id="greenCount">0</span></p>
+<p>VIOLET: <span id="violetCount">0</span></p>
+</div>
+
+<div class="card">
+<h3>Historical Graph</h3>
+<canvas id="chart" width="600" height="250"></canvas>
+</div>
+
+<div class="card">
+<h3>Trend Analysis</h3>
+<p id="trend">Enter results to view historical trends.</p>
+<p class="note">
+Past frequency only. This cannot reliably predict future random results.
+</p>
+</div>
+
+<div class="card">
+<h3>Result History</h3>
+<table>
+<thead>
+<tr>
+<th>No.</th>
+<th>Number</th>
+<th>Size</th>
+<th>Color</th>
+<th>Time</th>
+</tr>
+</thead>
+<tbody id="history"></tbody>
+</table>
+<button onclick="exportCSV()">EXPORT CSV</button>
+<button onclick="clearHistory()">CLEAR HISTORY</button>
+</div>
+
+<script>
+let historyData = [];
+
+try {
+  historyData = JSON.parse(
+    localStorage.getItem("wingoHistory") || "[]"
+  );
+  if (!Array.isArray(historyData)) historyData = [];
+} catch (e) {
+  historyData = [];
+}
+
+function getSize(n) {
+  return n >= 5 ? "BIG" : "SMALL";
+}
+
+function getColor(n) {
+  if (n === 0 || n === 5) return "VIOLET";
+  if ([1,3,7,9].includes(n)) return "GREEN";
+  return "RED";
+}
+
+function addNumber() {
+  const input = document.getElementById("numberInput");
+  const n = Number(input.value);
+
+  if (input.value.trim() === "" ||
+      !Number.isInteger(n) || n < 0 || n > 9) {
+    alert("Enter a whole number from 0 to 9");
+    return;
+  }
+
+  const item = {
+    number: n,
+    size: getSize(n),
+    color: getColor(n),
+    time: new Date().toLocaleString("en-IN")
+  };
+
+  historyData.unshift(item);
+  saveData();
+  render();
+
+  document.getElementById("result").textContent =
+    n + " = " + item.size + " / " + item.color;
+
+  input.value = "";
+}
+
+function saveData() {
+  localStorage.setItem(
+    "wingoHistory",
+    JSON.stringify(historyData)
+  );
+}
+
+function render() {
+  let big=0, small=0, red=0, green=0, violet=0;
+
+  historyData.forEach(item => {
+    if (item.size === "BIG") big++;
+    else small++;
+
+    if (item.color === "RED") red++;
+    if (item.color === "GREEN") green++;
+    if (item.color === "VIOLET") violet++;
+  });
+
+  document.getElementById("total").textContent =
+    historyData.length;
+  document.getElementById("bigCount").textContent = big;
+  document.getElementById("smallCount").textContent = small;
+  document.getElementById("redCount").textContent = red;
+  document.getElementById("greenCount").textContent = green;
+  document.getElementById("violetCount").textContent = violet;
+
+  document.getElementById("history").innerHTML =
+    historyData.map((item,i) => {
+      const safeTime = item.time || "Old record";
+      return `<tr>
+        <td>${i+1}</td>
+        <td>${item.number}</td>
+        <td>${item.size}</td>
+        <td>${item.color}</td>
+        <td>${safeTime}</td>
+      </tr>`;
+    }).join("");
+
+  updateTrend();
+  drawChart();
+}
+
+function updateTrend() {
+  const recent = historyData.slice(0,10);
+
+  if (recent.length === 0) {
+    document.getElementById("trend").textContent =
+      "Enter results to view trends.";
+    return;
+  }
+
+  const big = recent.filter(x => x.size === "BIG").length;
+  const small = recent.length - big;
+
+  let message = "Last " + recent.length +
+    " results: BIG " + big + ", SMALL " + small + ". ";
+
+  if (big > small) message += "BIG appeared more often.";
+  else if (small > big) message += "SMALL appeared more often.";
+  else message += "Both appeared equally often.";
+
+  document.getElementById("trend").textContent = message;
+}
+
+function drawChart() {
+  const canvas = document.getElementById("chart");
+  const ctx = canvas.getContext("2d");
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  const recent = historyData.slice(0,20).reverse();
+  if (recent.length === 0) return;
+
+  const barWidth = canvas.width / recent.length;
+
+  recent.forEach((item,i) => {
+    const height = (item.number + 1) * 20;
+
+    ctx.fillStyle =
+      item.color === "RED" ? "#ef4444" :
+      item.color === "GREEN" ? "#22c55e" : "#a855f7";
+
+    ctx.fillRect(
+      i*barWidth+3,
+      canvas.height-height,
+      barWidth-6,
+      height
+    );
+
+    ctx.fillStyle = "white";
+    ctx.font = "14px Arial";
+    ctx.fillText(
+      item.number,
+      i*barWidth+5,
+      canvas.height-height-5
+    );
+  });
+}
+
+function exportCSV() {
+  if (historyData.length === 0) {
+    alert("No history to export");
+    return;
+  }
+
+  const rows = [["Number","Size","Color","Time"]];
+
+  historyData.forEach(x => {
+    rows.push([
+      x.number,x.size,x.color,x.time || ""
+    ]);
+  });
+
+  const csv = rows.map(row =>
+    row.map(v =>
+      '"' + String(v).replace(/"/g,'""') + '"'
+    ).join(",")
+  ).join("\n");
+
+  const blob = new Blob([csv], {type:"text/csv"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+
+  a.href = url;
+  a.download = "wingo-history.csv";
+  a.click();
+
+  URL.revokeObjectURL(url);
+}
+
+function clearHistory() {
+  if (confirm("Clear all history?")) {
+    historyData = [];
+    saveData();
+    render();
+    document.getElementById("result").textContent = "";
+  }
+}
+
+render();
+
+/* Service Worker Registration */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js")
+      .then(() => console.log("Service Worker Ready"))
+      .catch(error =>
+        console.log("Service Worker Error:", error)
+      );
+  });
+}
+</script>
+
+</body>
+</html>

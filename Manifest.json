@@ -1,0 +1,11 @@
+
+{
+  "name": "WINGO ANALYZER PRO",
+  "short_name": "WINGO PRO",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#101827",
+  "theme_color": "#101827"
+}
