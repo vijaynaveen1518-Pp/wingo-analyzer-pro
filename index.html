@@ -3,74 +3,32 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#101827">
-<link rel="manifest" href="./manifest.json">
 <title>WINGO ANALYZER PRO</title>
-
 <style>
-body {
-  margin: 0;
-  padding: 15px;
-  background: #101827;
-  color: white;
-  font-family: Arial, sans-serif;
-}
-h1 { text-align:center; color:#00e5ff; }
-.card {
-  background:#1e293b;
-  padding:15px;
-  margin:12px 0;
-  border-radius:12px;
-}
-input,button {
-  padding:12px;
-  margin:5px 0;
-  border:0;
-  border-radius:8px;
-  font-size:16px;
-}
-input { width:90%; }
-button {
-  background:#00bcd4;
-  color:#07111f;
-  font-weight:bold;
-}
-.result {
-  font-size:20px;
-  font-weight:bold;
-  margin-top:10px;
-}
-table {
-  width:100%;
-  border-collapse:collapse;
-  font-size:13px;
-}
-td,th {
-  border-bottom:1px solid #475569;
-  padding:8px 4px;
-  text-align:center;
-}
-canvas {
-  width:100%;
-  background:#0b1220;
-  border-radius:8px;
-}
-.note { color:#cbd5e1; font-size:13px; }
+body{margin:0;padding:15px;background:#101827;color:white;font-family:Arial}
+h1{text-align:center;color:#00e5ff}
+.card{background:#1e293b;padding:15px;margin:12px 0;border-radius:12px}
+input,button,textarea{padding:12px;margin:5px 0;border:0;border-radius:8px;font-size:16px;box-sizing:border-box}
+input,textarea{width:100%}
+button{background:#00bcd4;color:#07111f;font-weight:bold;width:100%}
+textarea{min-height:150px;background:#0b1220;color:white;border:1px solid #64748b}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{border-bottom:1px solid #475569;padding:8px 4px;text-align:center}
+canvas{width:100%;background:#0b1220;border-radius:8px}
+.note{color:#cbd5e1;font-size:13px}
 </style>
 </head>
-
 <body>
 
 <h1>WINGO ANALYZER PRO</h1>
 
 <div class="card">
-<h3>Enter Result Number (0 - 9)</h3>
-<input id="numberInput" type="number" min="0" max="9"
-placeholder="Enter number">
-<br>
+<h3>Enter Result Number (0-9)</h3>
+<input id="numberInput" type="number" min="0" max="9" placeholder="Enter number">
 <button onclick="addNumber()">ADD RESULT</button>
-<div id="result" class="result"></div>
+<div id="result"></div>
 </div>
 
 <div class="card">
@@ -90,232 +48,156 @@ placeholder="Enter number">
 
 <div class="card">
 <h3>Trend Analysis</h3>
-<p id="trend">Enter results to view historical trends.</p>
-<p class="note">
-Past frequency only. This cannot reliably predict future random results.
-</p>
+<p id="trend">Enter results to view trends.</p>
+<p class="note">Past frequency only. This cannot reliably predict future random results.</p>
 </div>
 
 <div class="card">
 <h3>Result History</h3>
 <table>
-<thead>
-<tr>
-<th>No.</th>
-<th>Number</th>
-<th>Size</th>
-<th>Color</th>
-<th>Time</th>
-</tr>
-</thead>
+<thead><tr><th>No.</th><th>Number</th><th>Size</th><th>Color</th><th>Time</th></tr></thead>
 <tbody id="history"></tbody>
 </table>
+</div>
+
+<div class="card">
+<h3>Import Old CSV History</h3>
+<p class="note">Paste the CSV data copied from Acode below.</p>
+<textarea id="importText" placeholder="Paste CSV data here"></textarea>
+<button onclick="importCSV()">IMPORT CSV</button>
+</div>
+
+<div class="card">
+<h3>Export History</h3>
+<textarea id="csvText" readonly placeholder="CSV export appears here"></textarea>
 <button onclick="exportCSV()">EXPORT CSV</button>
+<button onclick="copyCSV()">COPY CSV DATA</button>
+<p id="copyStatus" class="note"></p>
+</div>
+
+<div class="card">
 <button onclick="clearHistory()">CLEAR HISTORY</button>
+<p class="note">Only use this if you intentionally want to erase all records.</p>
 </div>
 
 <script>
-let historyData = [];
+let historyData=[];
 
-try {
-  historyData = JSON.parse(
-    localStorage.getItem("wingoHistory") || "[]"
-  );
-  if (!Array.isArray(historyData)) historyData = [];
-} catch (e) {
-  historyData = [];
+try{
+ historyData=JSON.parse(localStorage.getItem("wingoHistory")||"[]");
+ if(!Array.isArray(historyData)) historyData=[];
+}catch(e){historyData=[];}
+
+function getSize(n){return n>=5?"BIG":"SMALL";}
+function getColor(n){
+ if(n===0||n===5)return "VIOLET";
+ if([1,3,7,9].includes(n))return "GREEN";
+ return "RED";
 }
-
-function getSize(n) {
-  return n >= 5 ? "BIG" : "SMALL";
+function saveData(){
+ localStorage.setItem("wingoHistory",JSON.stringify(historyData));
 }
-
-function getColor(n) {
-  if (n === 0 || n === 5) return "VIOLET";
-  if ([1,3,7,9].includes(n)) return "GREEN";
-  return "RED";
+function addNumber(){
+ const input=document.getElementById("numberInput");
+ const n=Number(input.value);
+ if(input.value.trim()===""||!Number.isInteger(n)||n<0||n>9){
+  alert("Enter a whole number from 0 to 9");return;
+ }
+ historyData.unshift({
+  number:n,size:getSize(n),color:getColor(n),
+  time:new Date().toLocaleString("en-IN")
+ });
+ saveData();render();
+ document.getElementById("result").textContent=n+" = "+getSize(n)+" / "+getColor(n);
+ input.value="";
 }
-
-function addNumber() {
-  const input = document.getElementById("numberInput");
-  const n = Number(input.value);
-
-  if (input.value.trim() === "" ||
-      !Number.isInteger(n) || n < 0 || n > 9) {
-    alert("Enter a whole number from 0 to 9");
-    return;
-  }
-
-  const item = {
-    number: n,
-    size: getSize(n),
-    color: getColor(n),
-    time: new Date().toLocaleString("en-IN")
-  };
-
-  historyData.unshift(item);
-  saveData();
-  render();
-
-  document.getElementById("result").textContent =
-    n + " = " + item.size + " / " + item.color;
-
-  input.value = "";
+function render(){
+ let big=0,small=0,red=0,green=0,violet=0;
+ historyData.forEach(x=>{
+  if(x.size==="BIG")big++;else small++;
+  if(x.color==="RED")red++;
+  if(x.color==="GREEN")green++;
+  if(x.color==="VIOLET")violet++;
+ });
+ document.getElementById("total").textContent=historyData.length;
+ document.getElementById("bigCount").textContent=big;
+ document.getElementById("smallCount").textContent=small;
+ document.getElementById("redCount").textContent=red;
+ document.getElementById("greenCount").textContent=green;
+ document.getElementById("violetCount").textContent=violet;
+ document.getElementById("history").innerHTML=historyData.map((x,i)=>
+ `<tr><td>${i+1}</td><td>${x.number}</td><td>${x.size}</td><td>${x.color}</td><td>${x.time||"Old record"}</td></tr>`
+ ).join("");
+ updateTrend();drawChart();
 }
-
-function saveData() {
-  localStorage.setItem(
-    "wingoHistory",
-    JSON.stringify(historyData)
-  );
+function updateTrend(){
+ const recent=historyData.slice(0,10);
+ if(!recent.length){document.getElementById("trend").textContent="Enter results to view trends.";return;}
+ const big=recent.filter(x=>x.size==="BIG").length;
+ const small=recent.length-big;
+ document.getElementById("trend").textContent=
+ "Last "+recent.length+" results: BIG "+big+", SMALL "+small+
+ (big>small?". BIG appeared more often.":small>big?". SMALL appeared more often.":". Both appeared equally often.");
 }
-
-function render() {
-  let big=0, small=0, red=0, green=0, violet=0;
-
-  historyData.forEach(item => {
-    if (item.size === "BIG") big++;
-    else small++;
-
-    if (item.color === "RED") red++;
-    if (item.color === "GREEN") green++;
-    if (item.color === "VIOLET") violet++;
-  });
-
-  document.getElementById("total").textContent =
-    historyData.length;
-  document.getElementById("bigCount").textContent = big;
-  document.getElementById("smallCount").textContent = small;
-  document.getElementById("redCount").textContent = red;
-  document.getElementById("greenCount").textContent = green;
-  document.getElementById("violetCount").textContent = violet;
-
-  document.getElementById("history").innerHTML =
-    historyData.map((item,i) => {
-      const safeTime = item.time || "Old record";
-      return `<tr>
-        <td>${i+1}</td>
-        <td>${item.number}</td>
-        <td>${item.size}</td>
-        <td>${item.color}</td>
-        <td>${safeTime}</td>
-      </tr>`;
-    }).join("");
-
-  updateTrend();
-  drawChart();
+function drawChart(){
+ const canvas=document.getElementById("chart");
+ const ctx=canvas.getContext("2d");
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+ const recent=historyData.slice(0,20).reverse();
+ if(!recent.length)return;
+ const w=canvas.width/recent.length;
+ recent.forEach((x,i)=>{
+  const h=(x.number+1)*20;
+  ctx.fillStyle=x.color==="RED"?"#ef4444":x.color==="GREEN"?"#22c55e":"#a855f7";
+  ctx.fillRect(i*w+3,canvas.height-h,w-6,h);
+  ctx.fillStyle="white";ctx.font="14px Arial";
+  ctx.fillText(x.number,i*w+5,canvas.height-h-5);
+ });
 }
-
-function updateTrend() {
-  const recent = historyData.slice(0,10);
-
-  if (recent.length === 0) {
-    document.getElementById("trend").textContent =
-      "Enter results to view trends.";
-    return;
-  }
-
-  const big = recent.filter(x => x.size === "BIG").length;
-  const small = recent.length - big;
-
-  let message = "Last " + recent.length +
-    " results: BIG " + big + ", SMALL " + small + ". ";
-
-  if (big > small) message += "BIG appeared more often.";
-  else if (small > big) message += "SMALL appeared more often.";
-  else message += "Both appeared equally often.";
-
-  document.getElementById("trend").textContent = message;
+function exportCSV(){
+ const rows=[["Number","Size","Color","Time"]];
+ historyData.forEach(x=>rows.push([x.number,x.size,x.color,x.time||""]));
+ const csv=rows.map(row=>row.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")).join("\n");
+ document.getElementById("csvText").value=csv;
+ document.getElementById("copyStatus").textContent="CSV ready.";
 }
-
-function drawChart() {
-  const canvas = document.getElementById("chart");
-  const ctx = canvas.getContext("2d");
-
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  const recent = historyData.slice(0,20).reverse();
-  if (recent.length === 0) return;
-
-  const barWidth = canvas.width / recent.length;
-
-  recent.forEach((item,i) => {
-    const height = (item.number + 1) * 20;
-
-    ctx.fillStyle =
-      item.color === "RED" ? "#ef4444" :
-      item.color === "GREEN" ? "#22c55e" : "#a855f7";
-
-    ctx.fillRect(
-      i*barWidth+3,
-      canvas.height-height,
-      barWidth-6,
-      height
-    );
-
-    ctx.fillStyle = "white";
-    ctx.font = "14px Arial";
-    ctx.fillText(
-      item.number,
-      i*barWidth+5,
-      canvas.height-height-5
-    );
-  });
+function copyCSV(){
+ const box=document.getElementById("csvText");
+ box.focus();box.select();box.setSelectionRange(0,box.value.length);
+ try{
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+   navigator.clipboard.writeText(box.value).then(()=>document.getElementById("copyStatus").textContent="CSV copied successfully!").catch(()=>fallbackCopy());
+  }else fallbackCopy();
+ }catch(e){fallbackCopy();}
 }
-
-function exportCSV() {
-  if (historyData.length === 0) {
-    alert("No history to export");
-    return;
-  }
-
-  const rows = [["Number","Size","Color","Time"]];
-
-  historyData.forEach(x => {
-    rows.push([
-      x.number,x.size,x.color,x.time || ""
-    ]);
-  });
-
-  const csv = rows.map(row =>
-    row.map(v =>
-      '"' + String(v).replace(/"/g,'""') + '"'
-    ).join(",")
-  ).join("\n");
-
-  const blob = new Blob([csv], {type:"text/csv"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-
-  a.href = url;
-  a.download = "wingo-history.csv";
-  a.click();
-
-  URL.revokeObjectURL(url);
+function fallbackCopy(){
+ const ok=document.execCommand("copy");
+ document.getElementById("copyStatus").textContent=ok?"CSV copied successfully!":"Select the text and choose Copy.";
 }
-
-function clearHistory() {
-  if (confirm("Clear all history?")) {
-    historyData = [];
-    saveData();
-    render();
-    document.getElementById("result").textContent = "";
-  }
+function importCSV(){
+ const text=document.getElementById("importText").value.trim();
+ if(!text){alert("Paste CSV data first");return;}
+ const lines=text.split(/\r?\n/);
+ let imported=[];
+ lines.slice(1).forEach(line=>{
+  const m=line.match(/^"?([0-9])"?,\s*"?([^,]*)"?,\s*"?([^,]*)"?,\s*"?([^"]*)"?$/);
+  if(!m)return;
+  const n=Number(m[1]);
+  imported.push({number:n,size:getSize(n),color:getColor(n),time:m[4]||"Imported"});
+ });
+ if(!imported.length){alert("No valid CSV records found");return;}
+ historyData=imported.concat(historyData);
+ saveData();render();
+ document.getElementById("importText").value="";
+ alert(imported.length+" records imported successfully");
 }
-
+function clearHistory(){
+ if(confirm("Clear all history?")){
+  historyData=[];saveData();render();
+  document.getElementById("result").textContent="";
+ }
+}
 render();
-
-/* Service Worker Registration */
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./service-worker.js")
-      .then(() => console.log("Service Worker Ready"))
-      .catch(error =>
-        console.log("Service Worker Error:", error)
-      );
-  });
-}
 </script>
-
 </body>
 </html>
